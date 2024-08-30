@@ -151,6 +151,9 @@ func (f *Function) ComputeSignature() {
 
 	if f.GetParameters() != nil {
 		for _, param := range f.GetParameters().GetParameters() {
+			/*			if param.TypeName.TypeDescription == nil {
+						utils.DumpNodeWithExit(param)
+					}*/
 			typeString := param.TypeName.TypeDescription.TypeString
 			actualParam := param.TypeName.Name
 
@@ -187,27 +190,27 @@ func (f *Function) ComputeSignature() {
 								}
 							}
 						}
-						case *StructDefinition:
-							for _, member := range node.GetMembers() {
-								if strings.Contains(member.GetTypeDescription().GetString(), "contract") {
-									if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
-										structParams = append(structParams, "address[]")
-									} else {
-										structParams = append(structParams, "address")
-									}
-								} else if strings.Contains(member.GetTypeDescription().GetString(), "enum") {
-									if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
-										structParams = append(structParams, "uint8[]")
-									} else {
-										structParams = append(structParams, "uint8")
-									}
+					case *StructDefinition:
+						for _, member := range node.GetMembers() {
+							if strings.Contains(member.GetTypeDescription().GetString(), "contract") {
+								if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+									structParams = append(structParams, "address[]")
 								} else {
-									structParams = append(structParams, member.GetTypeDescription().GetString())
+									structParams = append(structParams, "address")
 								}
+							} else if strings.Contains(member.GetTypeDescription().GetString(), "enum") {
+								if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+									structParams = append(structParams, "uint8[]")
+								} else {
+									structParams = append(structParams, "uint8")
+								}
+							} else {
+								structParams = append(structParams, member.GetTypeDescription().GetString())
 							}
+						}
 					}
 				}
-				actualParam = "("+strings.Join(structParams, ",")+")"
+				actualParam = "(" + strings.Join(structParams, ",") + ")"
 			} else if strings.Contains(typeString, "enum") {
 				if strings.Contains(typeString, "[]") {
 					actualParam = "uint8[]"
@@ -739,7 +742,6 @@ func (f *Function) getVirtualState(ctx *parser.FunctionDefinitionContext) bool {
 
 	return false
 }
-
 
 // translateMapping translates a Solidity mapping type string into a slice of data types.
 func translateMapping(mappingType string) []string {

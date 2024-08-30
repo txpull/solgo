@@ -122,7 +122,7 @@ func (e *Provider) ScanContract(ctx context.Context, addr common.Address) (*Cont
 		if err := json.Unmarshal(body, &contractResponse); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal error response: %s", err)
 		}
-		return nil, errors.New(contractResponse.Result)
+		return nil, fmt.Errorf("%s - %s", contractResponse.Result, url)
 	}
 
 	var contractResponse ContractResponse

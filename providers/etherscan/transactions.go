@@ -102,5 +102,9 @@ func (e *Provider) QueryContractCreationTx(ctx context.Context, addr common.Addr
 		}
 	}
 
+	if creationResponse.Result == nil || len(creationResponse.Result) == 0 {
+		return nil, fmt.Errorf("failed to find contract creation response for addr: %s", addr.Hex())
+	}
+
 	return creationResponse.Result[0], nil
 }

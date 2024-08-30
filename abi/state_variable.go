@@ -16,6 +16,10 @@ func (b *Builder) processStateVariable(stateVar *ir.StateVariable) *Method {
 		StateMutability: b.normalizeStateMutability(stateVar.GetStateMutability()),
 	}
 
+	if stateVar.GetTypeDescription() == nil {
+		return nil
+	}
+
 	typeName := b.resolver.ResolveType(stateVar.GetTypeDescription())
 
 	switch typeName {

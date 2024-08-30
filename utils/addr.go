@@ -36,6 +36,10 @@ func (n NamedAddr) AppendTags(tags ...string) NamedAddr {
 	return n
 }
 
+func (n NamedAddr) Hex() string {
+	return n.Addr.Hex()
+}
+
 // IsZeroAddress checks whenever named address is zero address
 func (n NamedAddr) IsZeroAddress() bool {
 	return n.Addr == ZeroAddress

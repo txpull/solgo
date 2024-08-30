@@ -75,8 +75,7 @@ func (a *Account) GetClient() *clients.Client {
 // This method is mainly used for testing purposes in simulation environments like Anvil.
 // It does not affect the real balance on the Ethereum network.
 func (a *Account) SetAccountBalance(ctx context.Context, amount *big.Int) error {
-	amountHex := common.Bytes2Hex(amount.Bytes())
-	return a.client.GetRpcClient().CallContext(ctx, nil, "anvil_setBalance", a.GetAddress(), amountHex)
+	return a.client.GetRpcClient().CallContext(ctx, nil, "anvil_setBalance", a.GetAddress(), amount.String())
 }
 
 // Balance retrieves the account's balance from the Ethereum network at a specified block number.

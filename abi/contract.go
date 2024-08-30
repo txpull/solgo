@@ -56,8 +56,10 @@ func (b *Builder) processContract(contract *ir.Contract) (*Contract, error) {
 		if stateVar.Name == "" && stateVar.GetTypeDescription() == nil {
 			continue
 		}
-		method := b.processStateVariable(stateVar)
-		toReturn = append(toReturn, method)
+
+		if method := b.processStateVariable(stateVar); method != nil {
+			toReturn = append(toReturn, method)
+		}
 	}
 
 	// Process events.

@@ -3,8 +3,14 @@ package bindings
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
+	"github.com/unpackdev/solgo/clients"
 	"github.com/unpackdev/solgo/utils"
+	"github.com/unpackdev/solgo/utils/entities"
 	"math/big"
 )
 
@@ -33,6 +39,10 @@ func NewUniswapV2(ctx context.Context, network utils.Network, manager *Manager, 
 		opts = DefaultUniswapV2BindOptions()
 	}
 
+	if manager == nil {
+		return nil, errors.New("binding manager is not set while creating new uniswap_v2 bindings")
+	}
+
 	for _, opt := range opts {
 		if err := opt.Validate(); err != nil {
 			return nil, err
@@ -41,7 +51,13 @@ func NewUniswapV2(ctx context.Context, network utils.Network, manager *Manager, 
 
 	for _, opt := range opts {
 		for _, oNetwork := range opt.Networks {
-			if _, err := manager.RegisterBinding(oNetwork, opt.NetworkID, opt.Type, opt.Address, opt.ABI); err != nil {
+			if _, err := manager.RegisterBinding(
+				oNetwork,
+				opt.NetworkID,
+				opt.Type,
+				opt.Address,
+				opt.ABI,
+			); err != nil {
 				return nil, err
 			}
 		}
@@ -141,6 +157,125 @@ func (u *UniswapV2) GetAmountOut(ctx context.Context, amountIn *big.Int, reserve
 	}
 
 	return amountOut, nil
+}
+
+func (u *UniswapV2) Buy(opts *bind.TransactOpts, network utils.Network, simulatorType utils.SimulatorType, client *clients.Client, amountOutMin *big.Int, path []common.Address, to common.Address, amount *entities.CurrencyAmount, deadline *big.Int) (*types.Transaction, *types.Receipt, error) {
+	bind, err := u.GetBinding(utils.Ethereum, UniswapV2Router)
+	if err != nil {
+		return nil, nil, err
+	}
+	bindAbi := bind.GetABI()
+
+	method, exists := bindAbi.Methods["swapExactETHForTokens"]
+	if !exists {
+		return nil, nil, errors.New("swapExactETHForTokens method not found")
+	}
+
+	input, err := bindAbi.Pack(method.Name, amountOutMin, path, to, deadline)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Estimate gas limit
+	gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+		From:  opts.From,
+		To:    &bind.Address,
+		Data:  input,
+		Value: amount.Quotient(),
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	opts.GasLimit = gasLimit
+
+	// Set gas price or fees if not already set
+	if opts.GasPrice == nil && opts.GasFeeCap == nil && opts.GasTipCap == nil {
+		head, err := client.HeaderByNumber(context.Background(), nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get latest block header: %w", err)
+		}
+
+		if head.BaseFee != nil {
+			// EIP-1559 transaction (dynamic fee)
+			opts.GasFeeCap = new(big.Int).Add(head.BaseFee, defaultMaxPriorityFeePerGas)
+			opts.GasTipCap = defaultMaxPriorityFeePerGas
+		} else {
+			// Legacy transaction
+			opts.GasPrice = big.NewInt(2e9) // 2 Gwei
+		}
+	}
+
+	tx, err := u.Manager.SendTransaction(opts, u.network, simulatorType, client, &bind.Address, input)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to send swapExactETHForTokens transaction: %w", err)
+	}
+
+	receipt, err := u.Manager.WaitForReceipt(u.ctx, network, simulatorType, client, tx.Hash())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get swapExactETHForTokens transaction receipt: %w", err)
+	}
+
+	return tx, receipt, nil
+}
+
+func (u *UniswapV2) Sell(opts *bind.TransactOpts, network utils.Network, simulatorType utils.SimulatorType, client *clients.Client, amountIn *big.Int, amountOutMin *big.Int, path []common.Address, to common.Address, deadline *big.Int) (*types.Transaction, *types.Receipt, error) {
+	bind, err := u.GetBinding(utils.Ethereum, UniswapV2Router)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bindAbi := bind.GetABI()
+
+	method, exists := bindAbi.Methods["swapExactTokensForETHSupportingFeeOnTransferTokens"]
+	if !exists {
+		return nil, nil, errors.New("swapExactTokensForETH method not found")
+	}
+
+	input, err := bindAbi.Pack(method.Name, amountIn, amountOutMin, path, to, deadline)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Estimate gas limit
+	gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+		From:  opts.From,
+		To:    &bind.Address,
+		Data:  input,
+		//Value: amountIn,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	opts.GasLimit = gasLimit
+
+	// Set gas price or fees if not already set
+	if opts.GasPrice == nil && opts.GasFeeCap == nil && opts.GasTipCap == nil {
+		head, err := client.HeaderByNumber(context.Background(), nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get latest block header: %w", err)
+		}
+
+		if head.BaseFee != nil {
+			// EIP-1559 transaction (dynamic fee)
+			opts.GasFeeCap = new(big.Int).Add(head.BaseFee, defaultMaxPriorityFeePerGas)
+			opts.GasTipCap = defaultMaxPriorityFeePerGas
+		} else {
+			// Legacy transaction
+			opts.GasPrice = big.NewInt(2e9) // 2 Gwei
+		}
+	}
+
+	tx, err := u.Manager.SendTransaction(opts, u.network, simulatorType, client, &bind.Address, input)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to send swapExactTokensForETH transaction: %w", err)
+	}
+
+	receipt, err := u.Manager.WaitForReceipt(u.ctx, network, simulatorType, client, tx.Hash())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get swapExactTokensForETH transaction receipt: %w", err)
+	}
+
+	return tx, receipt, nil
 }
 
 func DefaultUniswapV2BindOptions() []*BindOptions {

@@ -55,10 +55,8 @@ func (m *Manager) TraceBlock(ctx context.Context, network utils.Network, number 
 
 	if err := rpcClient.CallContext(ctx, &result, "trace_block", numberHex); err != nil {
 		if err := rpcClient.CallContext(ctx, &tmp, "trace_block", numberHex); err != nil {
-			fmt.Println(err)
 			return nil, errors.Wrap(err, "failed to execute trace_block")
 		}
-		//utils.DumpNodeWithExit(tmp)
 		return nil, errors.Wrap(err, "failed to execute trace_block")
 	}
 

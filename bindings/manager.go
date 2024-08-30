@@ -40,6 +40,7 @@ func NewManager(ctx context.Context, clientPool *clients.ClientPool) (*Manager, 
 		ctx:        ctx,
 		clientPool: clientPool,
 		bindings:   make(map[utils.Network]map[BindingType]*Binding),
+		mu:         sync.RWMutex{},
 	}, nil
 }
 
@@ -296,7 +297,6 @@ func (m *Manager) CallContractMethodUnpackMap(ctx context.Context, network utils
 
 	return unpackedResults, nil
 }
-
 
 // CallContractMethodUnpackMap executes a contract method call and unpacks the results into a map, providing
 // a flexible interface for handling contract outputs.
