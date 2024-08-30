@@ -30,15 +30,45 @@ func (c *Contract) DiscoverSourceCode(ctx context.Context) error {
 		var err error
 
 		// Retry mechanism
-		const maxRetries = 10
+		const maxRetries = 15
 		for i := 0; i < maxRetries; i++ {
-			dCtx, dCancel := context.WithTimeout(ctx, 15*time.Second)
+			dCtx, dCancel := context.WithTimeout(ctx, 60*time.Second)
 			response, err = c.etherscan.ScanContract(dCtx, c.addr)
 			if err != nil {
 				if strings.Contains(err.Error(), "Max rate limit reached") ||
 					strings.Contains(err.Error(), "context deadline exceeded") {
 					// Wait for i*1000ms before retrying
 					time.Sleep(time.Duration(i*1000) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "Max calls per sec rate limit reached") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*1000) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "invalid character") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*100) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "connection reset by peer") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*100) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "i/o timeout") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*100) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "EOF") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*100) * time.Millisecond)
+					dCancel()
+					continue
+				} else if strings.Contains(err.Error(), "TLS handshake timeout") {
+					// Wait for i*1000ms before retrying
+					time.Sleep(time.Duration(i*100) * time.Millisecond)
 					dCancel()
 					continue
 				} else if !strings.Contains(err.Error(), "not found") &&
@@ -120,6 +150,7 @@ func (c *Contract) DiscoverSourceCode(ctx context.Context) error {
 		}
 
 		c.descriptor.Name = response.Name
+		c.descriptor.UnitName = response.Name
 		c.descriptor.CompilerVersion = c.descriptor.SourcesRaw.CompilerVersion
 		c.descriptor.Optimized = optimized
 		c.descriptor.OptimizationRuns = optimizationRuns

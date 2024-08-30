@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-
 	ast_pb "github.com/unpackdev/protos/dist/go/ast"
 	"github.com/unpackdev/solgo/parser"
 )

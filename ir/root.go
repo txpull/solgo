@@ -242,7 +242,7 @@ func (b *Builder) processRoot(root *ast.RootNode) *RootSourceUnit {
 		builder:        b,
 		Unit:           root,
 		NodeType:       root.GetType(),
-		ContractsCount: int32(root.GetSourceUnitCount()),
+		ContractsCount: root.GetSourceUnitCount(),
 		Contracts:      make([]*Contract, 0),
 		ContractTypes:  make([]string, 0),
 		Standards:      make([]*Standard, 0),
@@ -255,7 +255,7 @@ func (b *Builder) processRoot(root *ast.RootNode) *RootSourceUnit {
 
 	entrySourceUnit := root.GetSourceUnitById(root.GetEntrySourceUnit())
 	if entrySourceUnit == nil {
-		zap.L().Warn(
+		zap.L().Debug(
 			"Entry source unit not found. Make sure it's correctly set.",
 			zap.String("contract_address", b.GetAddress().Hex()),
 			zap.Int64("requested_source_unit_id", root.GetEntrySourceUnit()),

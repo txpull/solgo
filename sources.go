@@ -750,11 +750,13 @@ func (s *Sources) WriteToDir(path string) error {
 
 	// Write each SourceUnit's content to a file in the specified directory
 	for _, sourceUnit := range s.SourceUnits {
-		content := utils.SimplifyImportPaths(sourceUnit.Content)
+		// WARN: Left it here as a future - BIG NO NO - import paths will be skewed and won't able to parse
+		// properly + we won't be able to share sources with everyone else as-they-are...
+		// content := utils.SimplifyImportPaths(sourceUnit.Content)
 
 		filePath := filepath.Join(path, sourceUnit.Name+".sol")
 
-		if err := utils.WriteToFile(filePath, []byte(content)); err != nil {
+		if err := utils.WriteToFile(filePath, []byte(sourceUnit.Content)); err != nil {
 			return fmt.Errorf("failed to write source unit %s to file: %v", sourceUnit.Name, err)
 		}
 	}

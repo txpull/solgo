@@ -3,6 +3,11 @@ package bindings
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
+	"github.com/unpackdev/solgo/clients"
+	"go.uber.org/zap"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,8 +47,8 @@ func NewToken(ctx context.Context, network utils.Network, manager *Manager, opts
 
 	// Now lets register all the bindings with the manager
 	for _, opt := range opts {
-		for _, network := range opt.Networks {
-			if _, err := manager.RegisterBinding(network, opt.NetworkID, opt.Type, opt.Address, opt.ABI); err != nil {
+		for _, oNetwork := range opt.Networks {
+			if _, err := manager.RegisterBinding(oNetwork, opt.NetworkID, opt.Type, opt.Address, opt.ABI); err != nil {
 				return nil, err
 			}
 		}
@@ -210,6 +215,121 @@ func (t *Token) GetOptionsByNetwork(network utils.Network) *BindOptions {
 		}
 	}
 	return nil
+}
+
+func (t *Token) Transfer(ctx context.Context, network utils.Network, simulatorType utils.SimulatorType, client *clients.Client, opts *bind.TransactOpts, to common.Address, amount *big.Int, atBlock *big.Int) (*types.Transaction, *types.Receipt, error) {
+	binding, err := t.GetBinding(utils.Ethereum, Erc20)
+	if err != nil {
+		return nil, nil, err
+	}
+	bindingAbi := binding.GetABI()
+
+	method, exists := bindingAbi.Methods["transfer"]
+	if !exists {
+		return nil, nil, errors.New("transfer method not found")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	default:
+		input, err := bindingAbi.Pack(method.Name, to, amount)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tx, err := t.Manager.SendTransaction(opts, t.network, simulatorType, client, &binding.Address, input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to send transfer transaction: %w", err)
+		}
+
+		receipt, err := t.Manager.WaitForReceipt(t.ctx, network, simulatorType, client, tx.Hash())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get transfer transaction receipt: %w", err)
+		}
+
+		return tx, receipt, nil
+	}
+}
+
+func (t *Token) Approve(ctx context.Context, network utils.Network, simulatorType utils.SimulatorType, client *clients.Client, opts *bind.TransactOpts, from common.Address, spender common.Address, amount *big.Int, atBlock *big.Int) (*types.Transaction, *types.Receipt, error) {
+	binding, err := t.GetBinding(utils.Ethereum, Erc20)
+	if err != nil {
+		return nil, nil, err
+	}
+	bindingAbi := binding.GetABI()
+
+	method, exists := bindingAbi.Methods["approve"]
+	if !exists {
+		return nil, nil, errors.New("approve method not found")
+	}
+
+	input, err := bindingAbi.Pack(method.Name, spender, amount)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	default:
+		tx, err := t.Manager.SendTransaction(opts, t.network, simulatorType, client, &from, input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to send approve transaction: %w", err)
+		}
+
+		receipt, err := t.Manager.WaitForReceipt(t.ctx, network, simulatorType, client, tx.Hash())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get approve transaction receipt: %w", err)
+		}
+
+		zap.L().Debug(
+			"Approve transaction sent and receipt received",
+			zap.String("tx_hash", tx.Hash().Hex()),
+			zap.String("tx_from", spender.Hex()),
+			zap.String("tx_to", tx.To().Hex()),
+			zap.String("tx_nonce", fmt.Sprintf("%d", tx.Nonce())),
+			zap.String("tx_gas_price", tx.GasPrice().String()),
+			zap.String("tx_gas", fmt.Sprintf("%d", tx.Gas())),
+		)
+
+		return tx, receipt, nil
+	}
+}
+
+func (t *Token) TransferFrom(ctx context.Context, network utils.Network, simulatorType utils.SimulatorType, client *clients.Client, opts *bind.TransactOpts, from, to common.Address, amount *big.Int, atBlock *big.Int) (*types.Transaction, *types.Receipt, error) {
+	binding, err := t.GetBinding(utils.Ethereum, Erc20)
+	if err != nil {
+		return nil, nil, err
+	}
+	bindingAbi := binding.GetABI()
+
+	method, exists := bindingAbi.Methods["transferFrom"]
+	if !exists {
+		return nil, nil, errors.New("transfer method not found")
+	}
+
+	input, err := bindingAbi.Pack(method.Name, from, to, amount)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	default:
+		tx, err := t.Manager.SendTransaction(opts, t.network, simulatorType, client, &binding.Address, input)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to send transfer transaction: %w", err)
+		}
+
+		receipt, err := t.Manager.WaitForReceipt(t.ctx, network, simulatorType, client, tx.Hash())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get transfer transaction receipt: %w", err)
+		}
+
+		return tx, receipt, nil
+	}
 }
 
 // DefaultTokenBindOptions generates a default set of BindOptions for ERC20 and ERC20Ownable tokens. It presets

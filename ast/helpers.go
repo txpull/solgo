@@ -126,8 +126,30 @@ func normalizeTypeDescription(typeName string) (string, string) {
 	}
 }
 
+// builtInTypePrefixes is a set of known built-in type prefixes.
+var builtInTypePrefixes = []string{
+	"uint",
+	"int",
+	"bool",
+	"bytes",
+	"string",
+	"address",
+	"addresspayable",
+	"tuple",
+}
+
+// isBuiltInType checks if a type name is a built-in type by its prefix.
+func isBuiltInType(typeName string) bool {
+	for _, prefix := range builtInTypePrefixes {
+		if strings.HasPrefix(typeName, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // normalizeTypeDescriptionWithStatus normalizes type names and generates corresponding type identifiers.
-// Returns true if normalization occured.
+// Returns true if normalization occurred.
 func normalizeTypeDescriptionWithStatus(typeName string) (string, string, bool) {
 	isArray := strings.Contains(typeName, "[") && strings.Contains(typeName, "]")
 	isSlice := strings.HasSuffix(typeName, "[]")
@@ -137,16 +159,25 @@ func normalizeTypeDescriptionWithStatus(typeName string) (string, string, bool) 
 	case isArray:
 		numberPart := typeName[strings.Index(typeName, "[")+1 : strings.Index(typeName, "]")]
 		typePart := typeName[:strings.Index(typeName, "[")]
+		if !isBuiltInType(typePart) {
+			return typeName, fmt.Sprintf("t_%s", typeName), false
+		}
 		normalizedTypePart := normalizeTypeName(typePart)
 		return normalizedTypePart + "[" + numberPart + "]", fmt.Sprintf("t_%s_array", normalizedTypePart), true
 
 	case isSlice:
 		typePart := typeName[:len(typeName)-2]
+		if !isBuiltInType(typePart) {
+			return typeName, fmt.Sprintf("t_%s", typeName), false
+		}
 		normalizedTypePart := normalizeTypeName(typePart)
 		return normalizedTypePart + "[]", fmt.Sprintf("t_%s_slice", normalizedTypePart), true
 
 	case isPrefixSlice:
 		typePart := typeName[2:]
+		if !isBuiltInType(typePart) {
+			return typeName, fmt.Sprintf("t_%s", typeName), false
+		}
 		normalizedTypePart := normalizeTypeName(typePart)
 		return "[]" + normalizedTypePart, fmt.Sprintf("t_%s_slice", normalizedTypePart), true
 

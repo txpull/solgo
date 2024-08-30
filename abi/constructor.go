@@ -2,7 +2,6 @@ package abi
 
 import (
 	"fmt"
-
 	"github.com/unpackdev/solgo/ir"
 )
 

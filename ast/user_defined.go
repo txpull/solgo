@@ -35,6 +35,7 @@ func NewUserDefinedValueTypeDefinition(b *ASTBuilder) *UserDefinedValueTypeDefin
 func (b *UserDefinedValueTypeDefinition) SetReferenceDescriptor(refId int64, refDesc *TypeDescription) bool {
 	b.ReferencedDeclaration = refId
 	b.TypeDescription = refDesc
+	panic("Here...")
 	if b.TypeName != nil {
 		b.TypeName.SetReferenceDescriptor(refId, refDesc)
 

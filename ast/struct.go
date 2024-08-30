@@ -3,7 +3,6 @@ package ast
 import (
 	"fmt"
 	"github.com/goccy/go-json"
-
 	ast_pb "github.com/unpackdev/protos/dist/go/ast"
 	"github.com/unpackdev/solgo/parser"
 )
@@ -11,18 +10,18 @@ import (
 // StructDefinition represents a struct definition in the Solidity abstract syntax tree (AST).
 type StructDefinition struct {
 	*ASTBuilder                                  // Embedding the ASTBuilder for common functionality
-	SourceUnitName        string                 `json:"-"`                               // Name of the source unit
-	Id                    int64                  `json:"id"`                              // Unique identifier for the struct definition
-	NodeType              ast_pb.NodeType        `json:"nodeType"`                        // Type of the node (STRUCT_DEFINITION for struct definition)
-	Src                   SrcNode                `json:"src"`                             // Source information about the struct definition
-	Name                  string                 `json:"name"`                            // Name of the struct
-	NameLocation          SrcNode                `json:"nameLocation"`                    // Source information about the name of the struct
-	CanonicalName         string                 `json:"canonicalName"`                   // Canonical name of the struct
+	SourceUnitName        string                 `json:"-"` // Name of the source unit
+	Id                    int64                  `json:"id"` // Unique identifier for the struct definition
+	NodeType              ast_pb.NodeType        `json:"nodeType"` // Type of the node (STRUCT_DEFINITION for struct definition)
+	Src                   SrcNode                `json:"src"` // Source information about the struct definition
+	Name                  string                 `json:"name"` // Name of the struct
+	NameLocation          SrcNode                `json:"nameLocation"` // Source information about the name of the struct
+	CanonicalName         string                 `json:"canonicalName"` // Canonical name of the struct
 	ReferencedDeclaration int64                  `json:"referencedDeclaration,omitempty"` // Referenced declaration of the struct definition
-	TypeDescription       *TypeDescription       `json:"typeDescription"`                 // Type description of the struct definition
-	Members               []Node[NodeType]       `json:"members"`                         // Members of the struct definition
-	Visibility            ast_pb.Visibility      `json:"visibility"`                      // Visibility of the struct definition
-	StorageLocation       ast_pb.StorageLocation `json:"storageLocation"`                 // Storage location of the struct definition
+	TypeDescription       *TypeDescription       `json:"typeDescription"` // Type description of the struct definition
+	Members               []Node[NodeType]       `json:"members"` // Members of the struct definition
+	Visibility            ast_pb.Visibility      `json:"visibility"` // Visibility of the struct definition
+	StorageLocation       ast_pb.StorageLocation `json:"storageLocation"` // Storage location of the struct definition
 }
 
 // NewStructDefinition creates a new StructDefinition instance.

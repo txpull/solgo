@@ -3,6 +3,7 @@ package bindings
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 
@@ -39,6 +40,7 @@ func NewManager(ctx context.Context, clientPool *clients.ClientPool) (*Manager, 
 		ctx:        ctx,
 		clientPool: clientPool,
 		bindings:   make(map[utils.Network]map[BindingType]*Binding),
+		mu:         sync.RWMutex{},
 	}, nil
 }
 
@@ -192,6 +194,58 @@ func (m *Manager) CallContractMethod(ctx context.Context, network utils.Network,
 	return unpackedResults, nil
 }
 
+// CallContractMethodAtBlock executes a method call on a smart contract, handling the data packing, RPC call execution,
+// and results unpacking.
+func (m *Manager) CallContractMethodAtBlock(ctx context.Context, network utils.Network, blockNumber *big.Int, bindingType BindingType, toAddr common.Address, methodName string, params ...interface{}) (any, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	binding, ok := m.bindings[network][bindingType]
+	if !ok {
+		return nil, fmt.Errorf("binding %s not found for network %s", bindingType, network)
+	}
+
+	method, ok := binding.ABI.Methods[methodName]
+	if !ok {
+		return nil, fmt.Errorf("binding %s method %s not found in ABI", bindingType, methodName)
+	}
+
+	data, err := method.Inputs.Pack(params...)
+	if err != nil {
+		return nil, err
+	}
+
+	destinationAddr := toAddr
+	if destinationAddr == utils.ZeroAddress {
+		destinationAddr = binding.Address
+	}
+
+	callMsg := ethereum.CallMsg{
+		To:   &destinationAddr,
+		Data: append(method.ID, data...),
+	}
+
+	var result []byte
+
+	client := m.clientPool.GetClientByGroup(network.String())
+	if client == nil {
+		return nil, fmt.Errorf("client not found for network %s", network)
+	}
+
+	result, err = client.CallContract(context.Background(), callMsg, blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call contract: %w", err)
+	}
+
+	var unpackedResults any
+	err = binding.ABI.UnpackIntoInterface(&unpackedResults, methodName, result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack results: %w", err)
+	}
+
+	return unpackedResults, nil
+}
+
 // CallContractMethodUnpackMap executes a contract method call and unpacks the results into a map, providing
 // a flexible interface for handling contract outputs.
 func (m *Manager) CallContractMethodUnpackMap(ctx context.Context, network utils.Network, bindingType BindingType, toAddr common.Address, methodName string, params ...interface{}) (map[string]any, error) {
@@ -231,6 +285,58 @@ func (m *Manager) CallContractMethodUnpackMap(ctx context.Context, network utils
 	}
 
 	result, err = client.CallContract(context.Background(), callMsg, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call contract: %w", err)
+	}
+
+	unpackedResults := map[string]any{}
+	err = binding.ABI.UnpackIntoMap(unpackedResults, methodName, result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack results: %w", err)
+	}
+
+	return unpackedResults, nil
+}
+
+// CallContractMethodUnpackMap executes a contract method call and unpacks the results into a map, providing
+// a flexible interface for handling contract outputs.
+func (m *Manager) CallContractMethodUnpackMapAtBlock(ctx context.Context, network utils.Network, blockNumber *big.Int, bindingType BindingType, toAddr common.Address, methodName string, params ...interface{}) (map[string]any, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	binding, ok := m.bindings[network][bindingType]
+	if !ok {
+		return nil, fmt.Errorf("binding %s not found for network %s", bindingType, network)
+	}
+
+	method, ok := binding.ABI.Methods[methodName]
+	if !ok {
+		return nil, fmt.Errorf("binding %s method %s not found in ABI", bindingType, methodName)
+	}
+
+	data, err := method.Inputs.Pack(params...)
+	if err != nil {
+		return nil, err
+	}
+
+	destinationAddr := toAddr
+	if destinationAddr == utils.ZeroAddress {
+		destinationAddr = binding.Address
+	}
+
+	callMsg := ethereum.CallMsg{
+		To:   &destinationAddr,
+		Data: append(method.ID, data...),
+	}
+
+	var result []byte
+
+	client := m.clientPool.GetClientByGroup(network.String())
+	if client == nil {
+		return nil, fmt.Errorf("client not found for network %s", network)
+	}
+
+	result, err = client.CallContract(context.Background(), callMsg, blockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call contract: %w", err)
 	}

@@ -135,11 +135,11 @@ func (s *Storage) getStorageValueAt(ctx context.Context, contractAddress common.
 	}
 
 	if blockNumber == nil {
-		latestHeader, err := client.BlockByNumber(ctx, nil)
+		latestHeader, err := client.HeaderByNumber(ctx, nil)
 		if err != nil {
 			return blockNumber, nil, fmt.Errorf("failed to get latest block header: %v", err)
 		}
-		blockNumber = latestHeader.Number()
+		blockNumber = latestHeader.Number
 	}
 
 	bigIntIndex := big.NewInt(slot)

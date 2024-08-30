@@ -1,6 +1,7 @@
 package abi
 
 import (
+	ast_pb "github.com/unpackdev/protos/dist/go/ast"
 	"strings"
 
 	"github.com/unpackdev/solgo/ast"
@@ -96,10 +97,15 @@ func (t *TypeResolver) ResolveStructType(typeName *ast.TypeDescription) MethodIO
 	nameCleaned = strings.TrimRight(nameCleaned, "[]")
 	nameParts := strings.Split(nameCleaned, ".")
 
+	methodType := "tuple"
+	if strings.Contains(typeName.GetString(), "[]") {
+		methodType = "tuple[]"
+	}
+
 	toReturn := MethodIO{
 		Name:         nameParts[1],
 		Components:   make([]MethodIO, 0),
-		Type:         "tuple",
+		Type:         methodType,
 		InternalType: typeName.GetString(),
 	}
 
@@ -137,6 +143,52 @@ func (t *TypeResolver) ResolveStructType(typeName *ast.TypeDescription) MethodIO
 							Type:         dType.Type,
 							InternalType: member.GetTypeDescription().GetString(),
 						})
+					}
+				}
+			}
+		}
+	}
+
+	// We did not discover any structs in the contracts themselves... Apparently this is a global
+	// struct definition...
+	if len(toReturn.Components) == 0 {
+		for _, node := range t.parser.GetAstBuilder().GetRoot().GetGlobalNodes() {
+			if node.GetType() == ast_pb.NodeType_STRUCT_DEFINITION {
+				if structVar, ok := node.(*ast.StructDefinition); ok {
+					if structVar.GetName() == toReturn.Name {
+						for _, member := range structVar.GetMembers() {
+							// Mapping types are not supported in structs
+							if isMappingType(member.GetTypeDescription().GetString()) {
+								continue
+							}
+
+							if isContractType(member.GetTypeDescription().GetString()) {
+								toReturn.Outputs = append(toReturn.Outputs, MethodIO{
+									Name:         member.GetName(),
+									Type:         "address",
+									InternalType: member.GetTypeDescription().GetString(),
+								})
+
+								continue
+							}
+
+							dType := t.discoverType(member.GetTypeDescription().GetString())
+							if len(dType.Outputs) > 0 {
+								for _, out := range dType.Outputs {
+									toReturn.Components = append(toReturn.Components, MethodIO{
+										Name:         out.Name,
+										Type:         out.Type,
+										InternalType: member.GetTypeDescription().GetString(),
+									})
+								}
+							} else {
+								toReturn.Components = append(toReturn.Components, MethodIO{
+									Name:         member.GetName(),
+									Type:         dType.Type,
+									InternalType: member.GetTypeDescription().GetString(),
+								})
+							}
+						}
 					}
 				}
 			}

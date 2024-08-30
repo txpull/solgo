@@ -3,8 +3,8 @@ package contracts
 import (
 	"context"
 	"fmt"
-
 	"github.com/0x19/solc-switch"
+	hypersyncgo "github.com/enviodev/hypersync-client-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/unpackdev/solgo/bindings"
@@ -33,6 +33,7 @@ type Metadata struct {
 type Contract struct {
 	ctx          context.Context
 	clientPool   *clients.ClientPool
+	hypersync    *hypersyncgo.Client
 	client       *clients.Client
 	addr         common.Address
 	network      utils.Network
@@ -50,7 +51,7 @@ type Contract struct {
 // NewContract creates a new instance of Contract for a given Ethereum address and network.
 // It initializes the contract's context, metadata, and associated blockchain clients.
 // The function validates the contract's existence and its bytecode before creation.
-func NewContract(ctx context.Context, network utils.Network, clientPool *clients.ClientPool, stor *storage.Storage, bqp *bitquery.Provider, etherscan *etherscan.Provider, compiler *solc.Solc, bindManager *bindings.Manager, ipfsProvider metadata.Provider, addr common.Address) (*Contract, error) {
+func NewContract(ctx context.Context, network utils.Network, clientPool *clients.ClientPool, hypersync *hypersyncgo.Client, stor *storage.Storage, bqp *bitquery.Provider, etherscan *etherscan.Provider, compiler *solc.Solc, bindManager *bindings.Manager, ipfsProvider metadata.Provider, addr common.Address) (*Contract, error) {
 	if clientPool == nil {
 		return nil, fmt.Errorf("client pool is nil")
 	}
@@ -83,6 +84,7 @@ func NewContract(ctx context.Context, network utils.Network, clientPool *clients
 	toReturn := &Contract{
 		ctx:        ctx,
 		network:    network,
+		hypersync:  hypersync,
 		clientPool: clientPool,
 		client:     client,
 		addr:       addr,

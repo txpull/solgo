@@ -4,20 +4,17 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/goccy/go-json"
-	"log"
-	"math/big"
-	"os"
-	"strings"
-
 	account "github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/goccy/go-json"
 	"github.com/unpackdev/solgo/clients"
 	"github.com/unpackdev/solgo/utils"
+	"log"
+	"math/big"
+	"os"
 )
 
 const (
@@ -28,7 +25,7 @@ const (
 // It embeds ClientPool for network interactions and KeyStore for account management.
 // It also includes fields for account details, network information, and additional tags.
 type Account struct {
-	client             *clients.Client     `json:"-" yaml:"-"` // Client for Ethereum client interactions
+	client             *clients.Client
 	*keystore.KeyStore `json:"-" yaml:"-"` // KeyStore for managing account keys
 	Address            common.Address      `json:"address" yaml:"address"`         // Ethereum address of the account
 	Type               utils.AccountType   `json:"type" yaml:"type"`               // Account type
@@ -78,8 +75,7 @@ func (a *Account) GetClient() *clients.Client {
 // This method is mainly used for testing purposes in simulation environments like Anvil.
 // It does not affect the real balance on the Ethereum network.
 func (a *Account) SetAccountBalance(ctx context.Context, amount *big.Int) error {
-	amountHex := common.Bytes2Hex(amount.Bytes())
-	return a.client.GetRpcClient().Call(nil, "anvil_setBalance", a.GetAddress(), amountHex)
+	return a.client.GetRpcClient().CallContext(ctx, nil, "anvil_setBalance", a.GetAddress(), amount.String())
 }
 
 // Balance retrieves the account's balance from the Ethereum network at a specified block number.
@@ -112,21 +108,22 @@ func (a *Account) TransactOpts(client *clients.Client, amount *big.Int, simulate
 
 	if !simulate {
 		if a.Type == utils.SimpleAccountType {
-			privateKey, err := crypto.HexToECDSA(strings.TrimLeft(a.PrivateKey, "0x"))
-			if err != nil {
-				return nil, err
-			}
+			/*			privateKey, err := crypto.HexToECDSA(strings.TrimLeft(a.PrivateKey, "0x"))
+						if err != nil {
+							return nil, err
+						}*/
 
-			auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(client.GetNetworkID()))
-			if err != nil {
-				return nil, err
-			}
+			/*			auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(client.GetNetworkID()))
+						if err != nil {
+							return nil, err
+						}
 
-			auth.Nonce = big.NewInt(int64(nonce))
-			auth.GasPrice = gasPrice
-			auth.GasLimit = DEFAULT_GAS_LIMIT
-			auth.Value = amount
-			return auth, nil
+						auth.Nonce = big.NewInt(int64(nonce))
+						auth.GasPrice = gasPrice
+						auth.GasLimit = DEFAULT_GAS_LIMIT
+						auth.Value = amount
+						return auth, nil*/
+			return nil, nil
 		} else if a.Type == utils.KeystoreAccountType {
 			password, _ := a.DecodePassword()
 
@@ -236,6 +233,8 @@ func LoadAccount(path string) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
+	account.Address = account.KeystoreAccount.Address
+	account.Type = utils.KeystoreAccountType
 
 	return &account, nil
 }

@@ -217,6 +217,13 @@ func (p *PrimaryExpression) Parse(
 		}
 	}
 
+	if ctx.GetText() == "throw" {
+		p.TypeDescription = &TypeDescription{
+			TypeIdentifier: "t_magic_throw",
+			TypeString:     "throw",
+		}
+	}
+
 	if ctx.GetText() == "block" {
 		p.TypeDescription = &TypeDescription{
 			TypeIdentifier: "t_magic_block",

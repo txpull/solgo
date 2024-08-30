@@ -1,8 +1,6 @@
 package abi
 
 import (
-	"fmt"
-
 	"github.com/unpackdev/solgo/ir"
 )
 
@@ -19,7 +17,9 @@ func (b *Builder) processError(unit *ir.Error) (*Method, error) {
 
 	for _, parameter := range unit.GetParameters() {
 		if parameter.GetTypeDescription() == nil {
-			return nil, fmt.Errorf("nil type description for error parameter %s", parameter.GetName())
+			//utils.DumpNodeWithExit(unit)
+			//return nil, fmt.Errorf("nil type description for error parameter %s", parameter.GetName())
+			continue
 		}
 
 		methodIo := MethodIO{

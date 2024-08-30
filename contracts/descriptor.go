@@ -28,6 +28,7 @@ type Descriptor struct {
 	Receipt           *types.Receipt     `json:"receipt,omitempty"`
 	ABI               string             `json:"abi,omitempty"`
 	Name              string             `json:"name,omitempty"`
+	UnitName 		  string 			 `json:"unitName,omitempty"`
 	License           string             `json:"license,omitempty"`
 	SolgoVersion      string             `json:"solgo_version,omitempty"`
 	CompilerVersion   string             `json:"compiler_version,omitempty"`

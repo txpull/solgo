@@ -63,7 +63,12 @@ func DecodeTransactionFromAbi(data []byte, abiData []byte) (*Transaction, error)
 		Signature:      method.String(),
 		Name:           method.Name,
 		Method:         method,
-		Type:           utils.TransactionMethodType(strings.ToLower(method.Name)),
+		Type:          func() utils.TransactionMethodType {
+			if len(method.Name) > 0 {
+				return  utils.TransactionMethodType(strings.ToLower(method.Name))
+			}
+			return utils.UnknownTransactionMethodType
+		}(),
 		Inputs:         inputsMap,
 	}, nil
 }

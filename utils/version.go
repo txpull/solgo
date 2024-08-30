@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/binary"
 	"strconv"
 	"strings"
 )
@@ -9,10 +11,31 @@ import (
 // format. Optionally, a version can include a commit revision as a metadata string
 // appended after a plus sign (+).
 type SemanticVersion struct {
-	Major  int    `json:"major"`    // Major version, incremented for incompatible API changes.
-	Minor  int    `json:"minor"`    // Minor version, incremented for backwards-compatible enhancements.
-	Patch  int    `json:"patch"`    // Patch version, incremented for backwards-compatible bug fixes.
+	Major  int    `json:"major"`              // Major version, incremented for incompatible API changes.
+	Minor  int    `json:"minor"`              // Minor version, incremented for backwards-compatible enhancements.
+	Patch  int    `json:"patch"`              // Patch version, incremented for backwards-compatible bug fixes.
 	Commit string `json:"revision,omitempty"` // Optional commit revision for tracking specific builds.
+}
+
+// Bytes serializes the SemanticVersion into a byte slice.
+func (v SemanticVersion) Bytes() []byte {
+	buf := new(bytes.Buffer)
+
+	// Write Major, Minor, Patch as int32
+	binary.Write(buf, binary.BigEndian, int32(v.Major))
+	binary.Write(buf, binary.BigEndian, int32(v.Minor))
+	binary.Write(buf, binary.BigEndian, int32(v.Patch))
+
+	// Write Commit with length prefix
+	if v.Commit != "" {
+		commitBytes := []byte(v.Commit)
+		binary.Write(buf, binary.BigEndian, uint32(len(commitBytes)))
+		buf.Write(commitBytes)
+	} else {
+		binary.Write(buf, binary.BigEndian, uint32(0)) // No commit
+	}
+
+	return buf.Bytes()
 }
 
 // String returns the string representation of the SemanticVersion, excluding the
@@ -58,6 +81,48 @@ func ParseSemanticVersion(version string) SemanticVersion {
 		Patch:  patch,
 		Commit: commit,
 	}
+}
+
+func ParseSemanticVersionFromBytes(data []byte) (SemanticVersion, error) {
+	buf := bytes.NewReader(data)
+	v := SemanticVersion{}
+
+	var major, minor, patch int32
+	var commitLen uint32
+
+	// Read Major, Minor, Patch
+	if err := binary.Read(buf, binary.BigEndian, &major); err != nil {
+		return v, err
+	}
+
+	if err := binary.Read(buf, binary.BigEndian, &minor); err != nil {
+		return v, err
+	}
+
+	if err := binary.Read(buf, binary.BigEndian, &patch); err != nil {
+		return v, err
+	}
+
+	v.Major = int(major)
+	v.Minor = int(minor)
+	v.Patch = int(patch)
+
+	// Read Commit length
+	if err := binary.Read(buf, binary.BigEndian, &commitLen); err != nil {
+		return v, err
+	}
+
+	if commitLen > 0 {
+		commitBytes := make([]byte, commitLen)
+		if _, err := buf.Read(commitBytes); err != nil {
+			return v, err
+		}
+		v.Commit = string(commitBytes)
+	} else {
+		v.Commit = ""
+	}
+
+	return v, nil
 }
 
 // IsSemanticVersionGreaterOrEqualTo checks if the version represented by a string

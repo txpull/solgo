@@ -24,6 +24,17 @@ func (s Standard) ToProto() eip_pb.Standard {
 	return eip_pb.Standard_UNKNOWN
 }
 
+// Encode manually encodes the Standard type to a byte slice.
+func (s Standard) Encode() ([]byte, error) {
+	return []byte(s), nil
+}
+
+// Decode manually decodes a byte slice to a Standard type.
+func (s *Standard) Decode(data []byte) error {
+	*s = Standard(data)
+	return nil
+}
+
 // Constants representing various Ethereum standards and EIPs.
 const (
 	ERC20     Standard = "ERC20"     // ERC-20 Token Standard.

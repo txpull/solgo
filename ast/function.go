@@ -151,7 +151,77 @@ func (f *Function) ComputeSignature() {
 
 	if f.GetParameters() != nil {
 		for _, param := range f.GetParameters().GetParameters() {
-			params = append(params, param.TypeName.Name)
+			/*			if param.TypeName.TypeDescription == nil {
+						utils.DumpNodeWithExit(param)
+					}*/
+			typeString := param.TypeName.TypeDescription.TypeString
+			actualParam := param.TypeName.Name
+
+			if strings.Contains(typeString, "contract") {
+				if strings.Contains(typeString, "[]") {
+					actualParam = "address[]"
+				} else {
+					actualParam = "address"
+				}
+			} else if strings.Contains(typeString, "struct") {
+				structParams := make([]string, 0)
+				if iNode := f.resolver.GetTree().GetById(param.TypeName.GetReferencedDeclaration()); iNode != nil {
+					switch node := iNode.(type) {
+					case *Parameter:
+						if piNode := f.resolver.GetTree().GetById(node.GetTypeName().GetReferencedDeclaration()); piNode != nil {
+							switch pNode := piNode.(type) {
+							case *StructDefinition:
+								for _, member := range pNode.GetMembers() {
+									if strings.Contains(member.GetTypeDescription().GetString(), "contract") {
+										if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+											structParams = append(structParams, "address[]")
+										} else {
+											structParams = append(structParams, "address")
+										}
+									} else if strings.Contains(member.GetTypeDescription().GetString(), "enum") {
+										if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+											structParams = append(structParams, "uint8[]")
+										} else {
+											structParams = append(structParams, "uint8")
+										}
+									} else {
+										structParams = append(structParams, member.GetTypeDescription().GetString())
+									}
+								}
+							}
+						}
+					case *StructDefinition:
+						for _, member := range node.GetMembers() {
+							if strings.Contains(member.GetTypeDescription().GetString(), "contract") {
+								if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+									structParams = append(structParams, "address[]")
+								} else {
+									structParams = append(structParams, "address")
+								}
+							} else if strings.Contains(member.GetTypeDescription().GetString(), "enum") {
+								if strings.Contains(member.GetTypeDescription().GetString(), "[]") {
+									structParams = append(structParams, "uint8[]")
+								} else {
+									structParams = append(structParams, "uint8")
+								}
+							} else {
+								structParams = append(structParams, member.GetTypeDescription().GetString())
+							}
+						}
+					}
+				}
+				actualParam = "(" + strings.Join(structParams, ",") + ")"
+			} else if strings.Contains(typeString, "enum") {
+				if strings.Contains(typeString, "[]") {
+					actualParam = "uint8[]"
+				} else {
+					actualParam = "uint8"
+				}
+			} else if strings.Contains(typeString, "mapping") {
+				actualParam = strings.Join(translateMapping(typeString), ",")
+			}
+
+			params = append(params, actualParam)
 		}
 	}
 	f.SignatureRaw = strings.Join(
@@ -492,8 +562,6 @@ func (f *Function) Parse(
 
 	f.TypeDescription = f.buildTypeDescription()
 
-	f.ComputeSignature()
-
 	f.currentFunctions = append(f.currentFunctions, f)
 
 	return f
@@ -555,8 +623,6 @@ func (f *Function) ParseTypeName(
 	f.Body = bodyNode
 
 	f.TypeDescription = f.buildTypeDescription()
-
-	f.ComputeSignature()
 
 	f.currentFunctions = append(f.currentFunctions, f)
 
@@ -675,4 +741,28 @@ func (f *Function) getVirtualState(ctx *parser.FunctionDefinitionContext) bool {
 	}
 
 	return false
+}
+
+// translateMapping translates a Solidity mapping type string into a slice of data types.
+func translateMapping(mappingType string) []string {
+	var result []string
+
+	// Check if the input string starts with "mapping("
+	if !strings.HasPrefix(mappingType, "mapping(") {
+		return result
+	}
+
+	// Remove the "mapping(" prefix and the closing ")" at the end
+	mappingType = strings.TrimPrefix(mappingType, "mapping(")
+	mappingType = strings.TrimSuffix(mappingType, ")")
+
+	// Split the string by "=>"
+	parts := strings.Split(mappingType, "=>")
+	for _, part := range parts {
+		// Remove any leading and trailing spaces
+		part = strings.TrimSpace(part)
+		result = append(result, part)
+	}
+
+	return result
 }

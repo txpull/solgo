@@ -69,6 +69,9 @@ func (b *Builder) processEips(root *RootSourceUnit) {
 			outputs := make([]standards.Output, 0)
 
 			for _, param := range function.GetParameters() {
+				if param.GetTypeDescription() == nil {
+					//utils.DumpNodeWithExit(param)
+				}
 				inputs = append(inputs, standards.Input{
 					Type:    param.GetTypeDescription().GetString(),
 					Indexed: false, // Specific to events...
@@ -76,15 +79,12 @@ func (b *Builder) processEips(root *RootSourceUnit) {
 			}
 
 			for _, ret := range function.GetReturnStatements() {
-				if ret.GetTypeDescription() != nil {
-					outputs = append(outputs, standards.Output{
-						Type: "t_unknown", // Will fix this later on with upgrade of parser to support solidity 0.5+
-					})
-				} else {
-					outputs = append(outputs, standards.Output{
-						Type: ret.GetTypeDescription().GetString(),
-					})
+				if ret.GetTypeDescription() == nil {
+					//utils.DumpNodeWithExit(function)
 				}
+				outputs = append(outputs, standards.Output{
+					Type: ret.GetTypeDescription().GetString(),
+				})
 			}
 
 			contract.Functions = append(contract.Functions, standards.StandardFunction{

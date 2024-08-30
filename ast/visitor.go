@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"github.com/pkg/errors"
 	ast_pb "github.com/unpackdev/protos/dist/go/ast"
 )
 
@@ -49,6 +50,9 @@ func (t *Tree) WalkNodes(startNodes []Node[NodeType], visitor *NodeVisitor) erro
 
 // ExecuteTypeVisit executes a visitation function on all nodes of a specific type in the AST, starting from the root.
 func (t *Tree) ExecuteTypeVisit(nodeType ast_pb.NodeType, visitFunc func(node Node[NodeType]) (bool, error)) (bool, error) {
+	if t.astRoot == nil || t.astRoot.GetNodes() == nil {
+		return false, errors.New("cannot execute type visit on empty tree")
+	}
 	return t.executeTypeVisitRecursive(t.astRoot.GetNodes(), nodeType, visitFunc)
 }
 

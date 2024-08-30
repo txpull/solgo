@@ -19,6 +19,11 @@ func (t *Token) PrepareBindings(ctx context.Context) error {
 	return err
 }
 
+// GetUniswapV2Bind ...
+func (t *Token) GetUniswapV2Bind(bindManager *bindings.Manager) (*bindings.UniswapV2, error) {
+	return bindings.NewUniswapV2(t.ctx, t.network, bindManager, bindings.DefaultUniswapV2BindOptions())
+}
+
 // GetTokenBind connects to a blockchain simulator or live network to create a token binding.
 // It uses bindings.Manager and can target a specific block number.
 func (t *Token) GetTokenBind(ctx context.Context, bindManager *bindings.Manager) (*bindings.Token, error) {

@@ -49,9 +49,10 @@ func (c *Contract) Parse(ctx context.Context) error {
 		// we are getting into issues where we are not capable ATM to parse contracts with < 0.6.0 version.
 		// Because of it, we are going to disable all functionality for this particular contract related to
 		// source code parsing. :( In the future we should sort this out, but right now, MVP is the most important thing.
-		if utils.IsSemanticVersionLowerOrEqualTo(c.descriptor.CompilerVersion, utils.SemanticVersion{Major: 0, Minor: 5, Patch: 0}) {
+		if utils.IsSemanticVersionLowerOrEqualTo(c.descriptor.CompilerVersion, utils.SemanticVersion{Major: 0, Minor: 4, Patch: 0}) {
 			// There are some contracts we want to ensure to go through parsing logic regardless of semantic versioning check
 			// ETH: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 - 0.4.19 - WETH9
+			// NOTE: Temporary allowing all of the 0.4+
 			if c.descriptor.Address != common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2") {
 				return fmt.Errorf("not supported compiler version (older version): %v", c.descriptor.CompilerVersion)
 			}

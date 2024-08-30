@@ -212,7 +212,7 @@ func parseImportPathsForSourceUnit(
 			}
 
 			if importCtx.As() != nil {
-				importNode.UnitAlias = importCtx.As().GetText()
+				importNode.As = importCtx.As().GetText()
 			}
 
 			if importCtx.SymbolAliases() != nil {

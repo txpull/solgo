@@ -62,20 +62,23 @@ func (t *TypeName) WithParentNode(p Node[NodeType]) {
 
 // SetReferenceDescriptor sets the reference descriptions of the TypeName node.
 func (t *TypeName) SetReferenceDescriptor(refId int64, refDesc *TypeDescription) bool {
+	if t.TypeDescription != nil {
+		return true
+	}
+
 	t.ReferencedDeclaration = refId
 	t.TypeDescription = refDesc
 
-	// Lets update the parent node as well in case that type description is not set...
-	/* 	parentNodeId := t.GetSrc().GetParentIndex()
+	// Well this is a mother-fiasco...
+	// This whole TypeName needs to be revisited in the future entirely...
+	// Prototype that's now used on production...
+	if strings.HasSuffix(t.Name, "[]") && refDesc != nil {
+		if !strings.HasSuffix(refDesc.TypeString, "[]") {
+			t.TypeDescription.TypeString += "[]"
+			return true
+		}
+	}
 
-	   	if parentNodeId > 0 {
-	   		if parentNode := t.GetTree().GetById(parentNodeId); parentNode != nil {
-	   			if parentNode.GetTypeDescription() == nil {
-	   				parentNode.SetReferenceDescriptor(refId, refDesc)
-	   			}
-	   		}
-	   	}
-	*/
 	return true
 }
 
@@ -370,7 +373,6 @@ func (t *TypeName) parseTypeName(unit *SourceUnit[Node[ast_pb.SourceUnit]], pare
 				Length:      int64(pathCtx.GetStop().GetStop() - pathCtx.GetStart().GetStart() + 1),
 				ParentIndex: t.GetId(),
 			},
-
 			NodeType: ast_pb.NodeType_IDENTIFIER_PATH,
 		}
 
@@ -386,7 +388,7 @@ func (t *TypeName) parseTypeName(unit *SourceUnit[Node[ast_pb.SourceUnit]], pare
 		}
 
 		if found {
-			t.TypeDescription = &TypeDescription{
+			t.PathNode.TypeDescription = &TypeDescription{
 				TypeIdentifier: normalizedTypeIdentifier,
 				TypeString:     normalizedTypeName,
 			}
@@ -398,6 +400,13 @@ func (t *TypeName) parseTypeName(unit *SourceUnit[Node[ast_pb.SourceUnit]], pare
 				t.ReferencedDeclaration = refId
 				t.TypeDescription = refTypeDescription
 			}
+		}
+
+		// Alright lets now figure out main type description as it can be different such as
+		// PathNode vs PathNode[]
+		if refId, refTypeDescription := t.GetResolver().ResolveByNode(t, t.Name); refTypeDescription != nil {
+			t.ReferencedDeclaration = refId
+			t.TypeDescription = refTypeDescription
 		}
 
 	} else if ctx.TypeName() != nil {
@@ -438,7 +447,6 @@ func (t *TypeName) parseTypeName(unit *SourceUnit[Node[ast_pb.SourceUnit]], pare
 				t.TypeDescription = refTypeDescription
 			}
 		}
-
 	}
 }
 
@@ -472,7 +480,6 @@ func (t *TypeName) parseElementaryTypeName(unit *SourceUnit[Node[ast_pb.SourceUn
 			t.TypeDescription = refTypeDescription
 		}
 	}
-
 }
 
 // parseIdentifierPath parses the IdentifierPath from the given IdentifierPathContext.
@@ -482,8 +489,21 @@ func (t *TypeName) parseIdentifierPath(unit *SourceUnit[Node[ast_pb.SourceUnit]]
 	if len(ctx.AllIdentifier()) > 0 {
 		identifierCtx := ctx.Identifier(0)
 		t.PathNode = &PathNode{
-			Id:   t.GetNextID(),
-			Name: identifierCtx.GetText(),
+			Id: t.GetNextID(),
+			Name: func() string {
+				if len(ctx.AllIdentifier()) == 1 {
+					if t.Name == "" {
+						t.Name = identifierCtx.GetText()
+					}
+					return identifierCtx.GetText()
+				} else if len(ctx.AllIdentifier()) == 2 {
+					if t.Name == "" {
+						t.Name = identifierCtx.GetText()
+					}
+					return ctx.Identifier(1).GetText()
+				}
+				return ""
+			}(),
 			Src: SrcNode{
 				Line:        int64(ctx.GetStart().GetLine()),
 				Column:      int64(ctx.GetStart().GetColumn()),
@@ -515,18 +535,115 @@ func (t *TypeName) parseIdentifierPath(unit *SourceUnit[Node[ast_pb.SourceUnit]]
 		}
 
 		if found {
-			t.TypeDescription = &TypeDescription{
+			t.PathNode.TypeDescription = &TypeDescription{
 				TypeIdentifier: normalizedTypeIdentifier,
 				TypeString:     normalizedTypeName,
 			}
 		} else {
-			if refId, refTypeDescription := t.GetResolver().ResolveByNode(t, identifierCtx.GetText()); refTypeDescription != nil {
-				t.PathNode.ReferencedDeclaration = refId
-				t.ReferencedDeclaration = refId
-				t.TypeDescription = refTypeDescription
+			if len(ctx.AllIdentifier()) == 2 {
+				if refId, refTypeDescription := t.GetResolver().ResolveByNode(t.PathNode, ctx.Identifier(1).GetText()); refTypeDescription != nil {
+					t.PathNode.ReferencedDeclaration = refId
+					t.PathNode.TypeDescription = refTypeDescription
+				}
+			} else {
+				if refId, refTypeDescription := t.GetResolver().ResolveByNode(t.PathNode, identifierCtx.GetText()); refTypeDescription != nil {
+					t.PathNode.ReferencedDeclaration = refId
+					t.PathNode.TypeDescription = refTypeDescription
+				}
 			}
 		}
+
+		// There can be messages that are basically special...
+		if strings.Contains(ctx.GetText(), "msg.") {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_message",
+				TypeString:     "msg",
+			}
+		}
+
+		if strings.Contains(ctx.GetText(), "block.") {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_block",
+				TypeString:     "block",
+			}
+		}
+
+		if strings.Contains(ctx.GetText(), "abi") {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_abi",
+				TypeString:     "abi",
+			}
+		}
+
+		// For now just like this but in the future we should look into figuring out which contract
+		// is being referenced here...
+		// We would need to search for function declarations and match them accordingly...
+		if strings.Contains(ctx.GetText(), "super") {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_super",
+				TypeString:     "super",
+			}
+		}
+
+		// This is a magic this type and should be treated by setting type description to the contract type
+		if strings.Contains(ctx.GetText(), "this") {
+			if unit == nil {
+				t.TypeDescription = &TypeDescription{
+					TypeIdentifier: "t_magic_this",
+					TypeString:     "this",
+				}
+			} else {
+				t.TypeDescription = unit.GetTypeDescription()
+			}
+		}
+
+		if ctx.GetText() == "now" {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_now",
+				TypeString:     "now",
+			}
+		}
+
+		if strings.Contains(ctx.GetText(), "tx.") {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_magic_transaction",
+				TypeString:     "tx",
+			}
+		}
+
+		if ctx.GetText() == "origin" {
+			t.TypeDescription = &TypeDescription{
+				TypeIdentifier: "t_address",
+				TypeString:     "address",
+			}
+		}
+
+		if t.TypeDescription == nil {
+			bNormalizedTypeName, bNormalizedTypeIdentifier, bFound := normalizeTypeDescriptionWithStatus(
+				identifierCtx.GetText(),
+			)
+
+			// Alright lets now figure out main type description as it can be different such as
+			// PathNode vs PathNode[]
+			if bFound {
+				t.TypeDescription = &TypeDescription{
+					TypeIdentifier: bNormalizedTypeIdentifier,
+					TypeString:     bNormalizedTypeName,
+				}
+			} else {
+				if refId, refTypeDescription := t.GetResolver().ResolveByNode(t, t.Name); refTypeDescription != nil {
+					t.ReferencedDeclaration = refId
+					t.TypeDescription = refTypeDescription
+				}
+			}
+		}
+
+		/*		if t.Id == 2404 {
+				fmt.Println(ctx.GetText())
+				utils.DumpNodeWithExit(t)
+			}*/
 	}
+
 }
 
 // parseMappingTypeName parses the MappingTypeName from the given MappingTypeContext.
@@ -705,8 +822,8 @@ func (t *TypeName) generateTypeName(sourceUnit *SourceUnit[Node[ast_pb.SourceUni
 		} else if specificCtx.IdentifierPath() != nil {
 			typeName.NodeType = ast_pb.NodeType_USER_DEFINED_PATH_NAME
 			t.parseIdentifierPath(sourceUnit, parentNode.GetId(), specificCtx.IdentifierPath().(*parser.IdentifierPathContext))
-		} else {
 
+		} else {
 			normalizedTypeName, normalizedTypeIdentifier := normalizeTypeDescription(
 				typeName.Name,
 			)
@@ -777,6 +894,7 @@ func (t *TypeName) Parse(unit *SourceUnit[Node[ast_pb.SourceUnit]], fnNode Node[
 		case *antlr.TerminalNodeImpl:
 			continue
 		default:
+
 			expression := NewExpression(t.ASTBuilder)
 			if expr := expression.ParseInterface(unit, fnNode, t.GetId(), ctx.Expression()); expr != nil {
 				t.Expression = expr
@@ -803,6 +921,7 @@ func (t *TypeName) Parse(unit *SourceUnit[Node[ast_pb.SourceUnit]], fnNode Node[
 			}
 		}
 	}
+
 }
 
 // ParseMul parses the TypeName from the given TermalNode.
@@ -959,7 +1078,7 @@ func (td *TypeDescription) GetString() string {
 }
 
 // ToProto converts the TypeDescription instance to its corresponding protocol buffer representation.
-func (td TypeDescription) ToProto() *ast_pb.TypeDescription {
+func (td *TypeDescription) ToProto() *ast_pb.TypeDescription {
 	return &ast_pb.TypeDescription{
 		TypeString:     td.TypeString,
 		TypeIdentifier: td.TypeIdentifier,

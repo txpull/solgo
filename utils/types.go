@@ -112,6 +112,14 @@ func (t BlacklistType) String() string {
 	return string(t)
 }
 
+// TransferType defines the type of transfer, including "account" and "contract".
+type TransferType string
+
+// String returns the string representation of a TradeType.
+func (t TransferType) String() string {
+	return string(t)
+}
+
 // Constants defining various strategies, address types, transaction method types, etc.
 const (
 	HeadStrategy    Strategy = "head"
@@ -121,18 +129,32 @@ const (
 	AddressRecipient     AddressType = "address"
 	ContractRecipient    AddressType = "contract"
 
+	ZeroAddressType AddressType = "zero_address"
+	AccountAddressType        AddressType = "account"
+	ContractAddressType       AddressType = "contract"
+
+
+	AccountTransferType       TransferType = "account"
+	ContractTransferType      TransferType = "contract"
+
+
 	UnknownTransactionMethodType TransactionMethodType = "unknown"
 	ContractCreationType         TransactionMethodType = "contract_creation"
+	ApproveMethodType           TransactionMethodType = "approve"
 	TransferMethodType           TransactionMethodType = "transfer"
+	TransferFromMethodType           TransactionMethodType = "transferfrom"
+	DepositMethodType           TransactionMethodType = "deposit"
 	NoSignatureMethodType        TransactionMethodType = "no_signature"
 
 	UnknownLogEventType  LogEventType = "unknown"
 	SwapLogEventType     LogEventType = "swap"
+	TransferFromLogEventType LogEventType = "transferfrom"
 	TransferLogEventType LogEventType = "transfer"
 	DepositLogEventType  LogEventType = "deposit"
 	WithdrawLogEventType LogEventType = "withdraw"
 	MintLogEventType     LogEventType = "mint"
 	BurnLogEventType     LogEventType = "burn"
+	PairCreatedEventType LogEventType = "paircreated"
 
 	NoSimulator    SimulatorType = "no_simulator"
 	AnvilSimulator SimulatorType = "anvil"

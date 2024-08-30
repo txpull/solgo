@@ -215,11 +215,9 @@ func (m *ModifierDefinition) ParseDefinition(
 		parameters.Src = m.Src
 	}
 	m.Parameters = parameters
-
+	bodyNode := NewBodyNode(m.ASTBuilder, false)
 	if ctx.Block() != nil && !ctx.Block().IsEmpty() {
-		bodyNode := NewBodyNode(m.ASTBuilder, false)
 		bodyNode.ParseBlock(unit, contractNode, m, ctx.Block())
-		m.Body = bodyNode
 
 		if ctx.Block().AllUncheckedBlock() != nil {
 			for _, uncheckedCtx := range ctx.Block().AllUncheckedBlock() {
@@ -229,6 +227,7 @@ func (m *ModifierDefinition) ParseDefinition(
 			}
 		}
 	}
+	m.Body = bodyNode
 
 	m.currentModifiers = append(m.currentModifiers, m)
 	return m

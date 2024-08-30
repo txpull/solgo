@@ -153,6 +153,13 @@ func (f *Function) ToProto() *ir_pb.Function {
 
 // processFunction processes the function declaration and returns the Function.
 func (b *Builder) processFunction(unit *ast.Function, parseBody bool) *Function {
+
+	// First, we are going to compute signature itself...
+	// This is not done at the time of AST function build because reference declaration searches
+	// are not completed so type names will be missing for many functions until reference search is completed.
+	// This is, for now, expensive function as it iterates through references in case struct is found...
+	unit.ComputeSignature()
+
 	toReturn := &Function{
 		Unit:                    unit,
 		Id:                      unit.GetId(),

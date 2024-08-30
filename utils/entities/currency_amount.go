@@ -42,10 +42,6 @@ func (c *CurrencyAmount) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.Currency = &baseCurrency
-
-		// If you have other types that implement Currency, you can
-		// include additional logic here to decide which type to unmarshal into.
-		// For example, you might look for specific fields that are unique to each type.
 	}
 
 	return nil
